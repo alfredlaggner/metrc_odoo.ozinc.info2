@@ -25,10 +25,10 @@ class ImportTagsController extends Controller
 
         $path1 = $request->file('import_file')->store('temp');
         $path = storage_path('app') . '/' . $path1;
-        // DB::table('metrc_tags')->delete();
+        DB::table('metrc_tags')->delete();
         Excel::import(new MetrcTagsCollection, $path);
 
-        return redirect('/')->with('success', 'All good!');
+        return redirect('/')->with('status', 'Tags imported!');
     }
 
     public function import_packets(Request $request)
@@ -42,7 +42,7 @@ class ImportTagsController extends Controller
             MetrcPackage::where('tag',$msp->label)
                 ->update(['source_tag' => $msp->source_packet]);
         }
-        return redirect('/')->with('success', 'All good!');
+        return redirect('/')->with('status', 'Packets imported!');
     }
 
     public function source_packets()
