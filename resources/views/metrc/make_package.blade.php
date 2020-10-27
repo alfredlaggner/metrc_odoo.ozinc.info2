@@ -46,14 +46,17 @@
                         <div class="form-group text-left">
                             <label for="tag">Select Source Package</label>
                             <select class="form-control form-control-lg" id="myoption" style="height:35px;"
-                                    name="source_package" >
+                                    name="source_package">
                                 @foreach ($source_packages as $sp)
+                                    @php
+                                         $item = $sp->item;
+                                    @endphp
                                     @if ($sp->tag == $tag)
                                         <option selected
-                                                value={{$sp->tag}}>{{$sp->$sp->item . " - " . "Date: " . $sp->date . " - " .  "Quantity: " .  $sp->quantity . " "  . $sp->uom .  " - " . $sp->tag . " - " .  $sp->source_tag  }} </option>
+                                                value={{$sp->tag}}>{{$item . " x- " . "Date: " . $sp->date . " - " .  "Quantity: " .  $sp->quantity . " "  . $sp->uom .  " - " . $sp->tag . " - " .  $sp->source_tag  }} </option>
                                     @else
                                         <option
-                                            value={{$sp->tag}}>{{$sp->item . " - " . "Date: " . $sp->date . " - " .  "Quantity: " .  $sp->quantity . " "  . $sp->uom . " - " . $sp->tag  . " - " .  $sp->source_tag }} </option>
+                                            value={{$sp->tag}}>{{$item . " x- " . "Date: " . $sp->date . " - " .  "Quantity: " .  $sp->quantity . " "  . $sp->uom . " - " . $sp->tag  . " - " .  $sp->source_tag }} </option>
                                     @endif
                                 @endforeach
                             </select>
@@ -62,7 +65,7 @@
                         <div class="form-group text-left">
                             <label for="tag">Select a new tag</label>
                             <select class="form-control form-control-lg" id="myoption_tag" style="height:35px;"
-                                    name="new_package" >
+                                    name="new_package">
                                 @foreach ($tags as $tag)
                                     @if($tag->tag == $new_package)
                                         <option selected
@@ -75,6 +78,13 @@
                                     @endif
                                 @endforeach
                             </select>
+                        </div>
+
+                        <div class="form-group text-left">
+                            <label for="tag">Item</label>
+                            <input class="form-control form-control-lg" name="item" type="text"
+                                   value="{{$name}}" data-toggle="popover" data-trigger="hover" title="Help"
+                                   data-content="Change item name">
                         </div>
 
                         <div class="form-group text-left">
@@ -111,13 +121,15 @@
                             <div class="row">
                                 <div class="col">
                                     <button id="printLable" name="action" value="create"
-                                            class="btn btn-sm btn-primary btn-block" type="submit"  data-toggle="toolkit"  title="Help"
+                                            class="btn btn-sm btn-primary btn-block" type="submit" data-toggle="toolkit"
+                                            title="Help"
                                             data-content="Create a new Metrc package">Create Package
                                     </button>
                                 </div>
                                 <div class="col">
                                     <button id="printlabel2" name="action" value="discard"
-                                            class="btn btn-sm btn-primary btn-block" type="submit"  data-toggle="popover" data-trigger="hover" title="Help"
+                                            class="btn btn-sm btn-primary btn-block" type="submit" data-toggle="popover"
+                                            data-trigger="hover" title="Help"
                                             data-content="Remove this product from manifest creation">Discard Changes
                                     </button>
                                 </div>
@@ -139,7 +151,7 @@
 
     <script>
         var job = document.getElementById("myoption_tag");
-      //  if (!job.options[job.selectedIndex].defaultSelected) alert("#job has changed");
+        //  if (!job.options[job.selectedIndex].defaultSelected) alert("#job has changed");
         var is_updated = !job.options[job.selectedIndex].defaultSelected;
 
     </script>

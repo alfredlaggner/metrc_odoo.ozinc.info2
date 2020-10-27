@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Business;
 use App\LicenseNumber;
+use App\MetrcCategoryToUom;
 use App\MetrcItem;
 use App\MetrcTag;
 use App\MetrcUom;
 use App\MetrcOrderline;
+use App\Product;
+use App\ProductProduct;
 use Carbon\Carbon;
 use Illuminate\Routing\Route;
 use Illuminate\Http\Request;
@@ -48,6 +51,7 @@ class MetrcPackageController extends Controller
         $id = $request->get('id');
         $new_package = $request->get('metrc_package_created');
         $name = $request->get("name");
+        // dd($name);
         $quantity = $request->get("quantity");
         $uom = $request->get("uom");
         $line_number = $request->get("line_number");
@@ -120,6 +124,7 @@ class MetrcPackageController extends Controller
 
     public function create_package(Request $request)
     {
+        //  dd($request);
         $action = $request->get('action');
         $line_number = $request->get('line_number');
         $line_id = $request->get('id');
@@ -133,30 +138,37 @@ class MetrcPackageController extends Controller
         } elseif ($action == 'discard') {
             return redirect()->to(route('make_package_return', ['id' => $line_id, 'error_message' => 'Orderline ' . $line_number . ' not changed']) . "#error_message");
         }
+        $item = $request->get('item');
+        $item_found = MetrcItem::where('name', 'like', $item)->first();
 
+        if (!$item_found) {
+            $this->create_new_item($request);
+        }
+
+        //   dd("after item created");
         $new_package = $request->validate(['new_package' => 'required']);
         $line_number = $request->get('line_number');
         //  $scanned_tag = $request->get('scanned_tag');
         $source_package = $request->validate(['source_package' => 'required']);
         $quantity = $request->validate(['quantity' => 'required']);
         $uom = $request->validate(['uom' => 'required']);
-        $item = $request->get('item');
         $id = $request->get('id');
         $package = MetrcPackage::where('tag', $source_package)->first();
 
         $this->updateOrderLine($request);
 
-        $item = $package->item;
+        //    $item = $package->item;
         $new_uom = 'Grams';
         $actual_date = $today = Carbon::today()->toDateString();
-        /*        echo "Date: "  .  $actual_date . "<br>";;
-                echo "Source Package: " . $source_package . "<br>";
-                echo "New Package: " . $new_package . "<br>";
-                echo "Item Name: " . $item . "<br>";
-                echo "Quantity: " . $quantity . "<br>";
-                echo "Unit of Measure: " . $uom;*/
-        //   $item = "Royal Tree Hybrid Flower Granimals 3.5g";
-        //     dd($package);
+        /*                echo "Date: "  .  $actual_date . "<br>";;
+                  //     echo "Source Package: " . $source_package . "<br>";
+                    //   echo "New Package: " . $new_package . "<br>";
+                       echo "Item Name: " . $item . "<br>";
+                       echo "Quantity: " . $quantity . "<br>";
+                       echo "Unit of Measure: " . $uom;
+               //   $item = "Royal Tree Hybrid Flower Granimals 3.5g";
+                    dd($package);*/
+
         $packages_create = [
             'Tag' => $new_package['new_package'],
             "Quantity" => $quantity['quantity'],
@@ -221,8 +233,11 @@ class MetrcPackageController extends Controller
                 if (count($response_info) == 0) {
                     $message = $response_info[0]["message"];
                     array_push($error_message, [$message]);
-                } else {
-                    //     dd($response_info);
+                } /*elseif (sizeof($response_info) == 1) {
+                    //   dd($response_info);
+                    $message = $response_info["Message"];
+                    array_push($error_message, [$message]);
+                }*/ else {
                     for ($i = 0; $i < sizeof($response_info); $i++) {
                         $message = $response_info[$i]["message"];
                         array_push($error_message, [$message]);
@@ -244,7 +259,107 @@ class MetrcPackageController extends Controller
         //    dd($message);
     }
 
-    public function updateOrderLine($request)
+    public function create_new_item($request)
+    {
+//dd($request);
+
+        $item = $request->get('item');
+        $id = $request->get('id');
+        $uom_long = $request->get('uom');
+
+        $order_line = MetrcOrderline::where('id', $id)->first();
+     //   dd($order_line);
+        $product = ProductProduct::where('ext_id', $order_line->product_id)->first();
+     //   dd($product);
+        $category = $product->category;
+        $short_uom = $product->uom;
+        $unit_size = $product->unit_size;
+
+        $uom = MetrcCategoryToUom::where('category', $category)->first();
+        $unit_of_measure = $uom->uom;
+
+        echo "Product: " . $product->name . '<br>';
+        echo "Category: " . $product->category . '<br>';
+        echo "Short Uom: " . $short_uom . '<br>';
+        echo "Uom : " . $unit_of_measure . '<br>';
+        echo "Size: " . $unit_size . '<br>';
+
+    //    dd($request);
+        /*        if ($category == "Tincture") {
+                    $UnitOfMeasure =
+                }*/
+
+        $item_create = [
+            "ItemCategory" => $product->category,
+            "Name" => $item,
+            "UnitOfMeasure" => $unit_of_measure,
+            "UnitWeightUnitOfMeasure" => $uom_long,
+            "UnitWeight" => $unit_size,
+        ];
+        //  dd($packages_create);
+        $data1 = json_encode($item_create, JSON_PRETTY_PRINT);
+        //    dd($data1);
+        $data2 = "[" . $data1 . "]";
+        $data = ['body' => $data2];
+        //   dd($data);
+        $client = new Client([
+            'timeout' => 60.0,
+            'headers' => ['content-type' => 'application/json', 'Accept' => 'application/json'],
+            'auth' => ['6Qql8-KoIB7VuGFPDeUkZ2JnPLiAwzolmI4p-e2yM3w29mIz', 'myIsiMUHP3dD6qO0Yxpmfybn9E-YawVTZRoSGyelxk4M3EqM'], // oz
+            'request.options' => ['exceptions' => true]]);
+
+        $headers = [
+            'headers' => ['content-type' => 'application/json', 'Accept' => 'application/json'],
+            'auth' => ['6Qql8-KoIB7VuGFPDeUkZ2JnPLiAwzolmI4p-e2yM3w29mIz', 'myIsiMUHP3dD6qO0Yxpmfybn9E-YawVTZRoSGyelxk4M3EqM'], // oz
+        ];
+
+        $license = 'C11-0000224-LIC';   //oz
+        $message = '';
+        $messages = '';
+        $error_message = [];
+        try {
+            $response = $client->post('https://api-ca.metrc.com/items/v1/create?licenseNumber=' . $license, $data);
+            $rsp_body = $response->getBody()->getContents();
+            if ($rsp_body == '') {
+                $message = 'Item ' . $item . ' created';
+
+                //   MetrcTag::where('tag', '=', $new_package['new_package'])->update(['is_used' => 1, 'used_at' => Carbon::now()]);
+
+                return redirect()->to(route('make_package_return', [$id, $message]) . "#error_message");
+            } else {
+                $message = "Other error";
+            }
+
+        } catch (GuzzleException $error) {
+            $response = $error->getResponse();
+            $response_info = json_decode($response->getBody()->getContents(), true);
+            //    dd(is_array($response_info));
+            $message = $response_info;
+            //   dd($message);
+            if (is_array($response_info)) {
+                if (count($response_info) == 0) {
+                    $message = $response_info[0]["message"];
+                    array_push($error_message, [$message]);
+                } /*elseif (sizeof($response_info) == 1) {
+                    //   dd($response_info);
+                    $message = $response_info["Message"];
+                    array_push($error_message, [$message]);
+                }*/ else {
+                    for ($i = 0; $i < sizeof($response_info); $i++) {
+                        $message = $response_info[$i]["message"];
+                        array_push($error_message, [$message]);
+                    }
+                }
+            }
+            for ($i = 0; $i < count($error_message); $i++) {
+                $messages = $messages . $error_message[$i][0] . '|';
+            }
+            return redirect()->to(route('make_package_return', [$id, $messages]) . "#error_message");
+        }
+    }
+
+    public
+    function updateOrderLine($request)
     {
 
         MetrcOrderline::updateOrCreate(
@@ -260,13 +375,15 @@ class MetrcPackageController extends Controller
         );
     }
 
-    public function removeOrderLine($request)
+    public
+    function removeOrderLine($request)
     {
         $id = intval($request->get('id'));
         $ol = MetrcOrderline::where('id', $id)->delete();
     }
 
-    public function search_package()
+    public
+    function search_package()
     {
         $client = new Client([
             'base_uri' => "https://api-ca.metrc.com",
@@ -285,7 +402,8 @@ class MetrcPackageController extends Controller
         dd(($items));
     }
 
-    public function edit_sales_line(Request $request, $id)
+    public
+    function edit_sales_line(Request $request, $id)
     {
         MetrcOrderline::find($id)->first()->update([
 //

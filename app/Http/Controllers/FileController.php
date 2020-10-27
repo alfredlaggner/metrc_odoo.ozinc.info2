@@ -417,8 +417,8 @@ class FileController extends Controller
             ->get('sale.order.line');
 //dd($order_lines);
 
-        \DB::table('metrc_orderlines')->delete();
-        //   MetrcOrderline::delete();
+       // \DB::table('metrc_orderlines')->delete();
+           MetrcOrderline::truncate();
 //dd("xxx");
 
         for ($i = 0; $i < count($order_lines); $i++) {
