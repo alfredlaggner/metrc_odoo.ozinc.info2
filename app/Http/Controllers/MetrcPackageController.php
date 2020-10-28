@@ -140,8 +140,8 @@ class MetrcPackageController extends Controller
         }
         $item = $request->get('item');
         $item_found = MetrcItem::where('name', 'like', $item)->first();
-
         if (!$item_found) {
+          //  dd($item);
             $this->create_new_item($request);
         }
 
@@ -274,7 +274,9 @@ class MetrcPackageController extends Controller
         $category = $product->category;
         $short_uom = $product->uom;
         $unit_size = $product->unit_size;
-
+if ($category == "Flower" ){
+    
+}
         $uom = MetrcCategoryToUom::where('category', $category)->first();
         $unit_of_measure = $uom->uom;
 
@@ -301,7 +303,7 @@ class MetrcPackageController extends Controller
         //    dd($data1);
         $data2 = "[" . $data1 . "]";
         $data = ['body' => $data2];
-        //   dd($data);
+     //      dd($data);
         $client = new Client([
             'timeout' => 60.0,
             'headers' => ['content-type' => 'application/json', 'Accept' => 'application/json'],
@@ -322,7 +324,7 @@ class MetrcPackageController extends Controller
             $rsp_body = $response->getBody()->getContents();
             if ($rsp_body == '') {
                 $message = 'Item ' . $item . ' created';
-
+//dd($message);
                 //   MetrcTag::where('tag', '=', $new_package['new_package'])->update(['is_used' => 1, 'used_at' => Carbon::now()]);
 
                 return redirect()->to(route('make_package_return', [$id, $message]) . "#error_message");
@@ -354,6 +356,7 @@ class MetrcPackageController extends Controller
             for ($i = 0; $i < count($error_message); $i++) {
                 $messages = $messages . $error_message[$i][0] . '|';
             }
+          //  dd($messages);
             return redirect()->to(route('make_package_return', [$id, $messages]) . "#error_message");
         }
     }
