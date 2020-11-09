@@ -42,12 +42,15 @@
                         {!! Form::open(['route' => 'create_package','class' => 'form-signin']) !!}
                         <input hidden name="line_number" value="{{$line_number}}">
                         <input hidden name="id" value="{{$id}}">
+                        <input hidden name="source_quantity" value="{{$quantity}}">
+                        <input hidden name="source_uom" value="{{$uom}}">
 
                         <div class="form-group text-left">
                             <label for="tag">Select Source Package</label>
                             <select class="form-control form-control-lg" id="myoption" style="height:35px;"
                                     name="source_package">
                                 @foreach ($source_packages as $sp)
+
                                     @php
                                          $item = $sp->item;
                                     @endphp
@@ -86,9 +89,21 @@
                                    value="{{$name}}" data-toggle="popover" data-trigger="hover" title="Help"
                                    data-content="Change item name">
                         </div>
+                        <div class="form-group text-left">
+                            <label for="tag">Select Strain</label>
+                            <select class="form-control form-control-lg" id="myoption_strain" style="height:35px;"
+                                    name="strain">
+                                @foreach ($strains as $strain)
+                                        <option
+                                            value={{$strain->name}}>{{$strain->name}}
+                                        </option>
+                                @endforeach
+                            </select>
+                        </div>
+
 
                         <div class="form-group text-left">
-                            <label for="tag">Quantity</label>
+                            <label for="quantity">Quantity</label>
                             <input class="form-control form-control-lg" name="quantity" type="text"
                                    value="{{$quantity}}" data-toggle="popover" data-trigger="hover" title="Help"
                                    data-content="Change quantity for this sales line">
@@ -164,6 +179,11 @@
             height: 'resolve'
         });
         $("#myoption_tag").select2({
+            //   theme: "classic",
+            //  width: 'resolve' ,
+            height: 'resolve'
+        });
+        $("#myoption_strain").select2({
             //   theme: "classic",
             //  width: 'resolve' ,
             height: 'resolve'

@@ -8,6 +8,7 @@ use App\MetrcCategoryToUom;
 use App\MetrcItem;
 use App\MetrcTag;
 use App\MetrcUom;
+use App\MetrcStrain;
 use App\MetrcOrderline;
 use App\Product;
 use App\ProductProduct;
@@ -61,13 +62,15 @@ class MetrcPackageController extends Controller
         $tags = MetrcTag::orderby('tag')
             ->where('is_used', false)
             ->get();
+        $strains = MetrcStrain::orderby('name')
+            ->get();
         $uoms = MetrcUom::all();
 
         $orderline = MetrcOrderline::where('id', $id)->first();
         $scanned_tag = $orderline->metrc_package_created;
         $package_or_edit = "P";
         $tag = '';
-        return view('metrc.make_package', compact('id', 'name', 'scanned_tag', 'tag', 'quantity', 'uom', 'uoms', 'source_packages', 'new_package', 'line_number', 'sale_order_full', 'tags'));
+        return view('metrc.make_package', compact('id', 'name', 'scanned_tag', 'tag', 'quantity', 'uom', 'uoms', 'strains', 'source_packages', 'new_package', 'line_number', 'sale_order_full', 'tags'));
     }
 
     public function edit_orderline(Request $request)
@@ -124,10 +127,11 @@ class MetrcPackageController extends Controller
 
     public function create_package(Request $request)
     {
-        //  dd($request);
+        //    dd($request);
         $action = $request->get('action');
         $line_number = $request->get('line_number');
         $line_id = $request->get('id');
+
         if ($action == 'save') {
             $this->updateOrderLine($request);
             return redirect()->to(route('make_package_return', ['id' => $line_id, 'error_message' => 'Orderline ' . $line_number . ' saved']) . "#error_message");
@@ -141,7 +145,7 @@ class MetrcPackageController extends Controller
         $item = $request->get('item');
         $item_found = MetrcItem::where('name', 'like', $item)->first();
         if (!$item_found) {
-          //  dd($item);
+            //  dd($item);
             $this->create_new_item($request);
         }
 
@@ -150,28 +154,49 @@ class MetrcPackageController extends Controller
         $line_number = $request->get('line_number');
         //  $scanned_tag = $request->get('scanned_tag');
         $source_package = $request->validate(['source_package' => 'required']);
+        $source_uom = $request->get('source_uom');
+        $source_quantity = $request->get('source_quantity');
         $quantity = $request->validate(['quantity' => 'required']);
         $uom = $request->validate(['uom' => 'required']);
         $id = $request->get('id');
         $package = MetrcPackage::where('tag', $source_package)->first();
-
         $this->updateOrderLine($request);
-
-        //    $item = $package->item;
-        $new_uom = 'Grams';
         $actual_date = $today = Carbon::today()->toDateString();
-        /*                echo "Date: "  .  $actual_date . "<br>";;
-                  //     echo "Source Package: " . $source_package . "<br>";
-                    //   echo "New Package: " . $new_package . "<br>";
-                       echo "Item Name: " . $item . "<br>";
-                       echo "Quantity: " . $quantity . "<br>";
-                       echo "Unit of Measure: " . $uom;
-               //   $item = "Royal Tree Hybrid Flower Granimals 3.5g";
-                    dd($package);*/
+//$product = ProductProduct::where('ext_id' =)
+        //    $item = $package->item;
+        /*        $new_uom = 'Grams';
+                echo "Date: " . $actual_date . "<br>";;
+                echo "Item Name: " . $item . "<br>";
+                echo "Quantity: " . $quantity . "<br>";
+                echo "Source_Uom: " . $source_uom . "<br>";
+                echo "Unit of Measure: " . $uom;
+                dd($package);*/
 
+        $quantity = $quantity['quantity'];
+        $sp = MetrcPackage::where('tag', $source_package['source_package'])->first();
+        $source_uom = $sp->uom;
+        //    dd($source_uom);
+        $tag = $sp->tag;
+        $unit_size = 0;
+        /*        echo $tag .'<br>';
+                echo $source_uom;*/
+        if ($source_uom == "Grams") {
+            $orderline = MetrcOrderline::where('id', $line_id)->first();
+            $unit_size = $orderline->unit_size;
+            if ($unit_size > 1) {
+                $source_quantity = $unit_size * $quantity;
+            }
+        }
+        echo ($source_package['source_package']) . '<br>';
+        echo $quantity . '<br>';
+        echo $source_quantity;
+/*        $this->update_source_package($source_package['source_package'],$source_quantity, $quantity);
+dd( 'check' . $source_package['source_package']);*/
+
+        //     echo $unit_size;
         $packages_create = [
             'Tag' => $new_package['new_package'],
-            "Quantity" => $quantity['quantity'],
+            "Quantity" => $quantity,
             "UnitOfMeasure" => $uom['uom'],
             "ActualDate" => $actual_date,
             "Note" => "API",
@@ -184,8 +209,8 @@ class MetrcPackageController extends Controller
             "Ingredients" =>
                 [[
                     "Package" => $source_package['source_package'],
-                    "Quantity" => $quantity['quantity'],
-                    "UnitOfMeasure" => $uom['uom'],
+                    "Quantity" => $source_quantity,
+                    "UnitOfMeasure" => $source_uom
                 ]]];
         //  dd($packages_create);
         $data1 = json_encode($packages_create, JSON_PRETTY_PRINT);
@@ -255,8 +280,12 @@ class MetrcPackageController extends Controller
             return redirect()->to(route('make_package_return', [$id, $messages]) . "#error_message");
 
         }
+        $this->update_source_package($source_package['source_package'],$source_quantity);
+    }
 
-        //    dd($message);
+    public function update_source_package($source_package,$source_quantity, $quantity)
+    {
+        $sp = MetrcPackage::where('tag', $source_package)->update(['quantity' => $quantity - $source_quantity]);
     }
 
     public function create_new_item($request)
@@ -267,52 +296,146 @@ class MetrcPackageController extends Controller
         $id = $request->get('id');
         $uom_long = $request->get('uom');
 
+
         $order_line = MetrcOrderline::where('id', $id)->first();
-     //   dd($order_line);
         $product = ProductProduct::where('ext_id', $order_line->product_id)->first();
-     //   dd($product);
+        echo $order_line->product_id;
         $category = $product->category;
-        $short_uom = $product->uom;
-        $unit_size = $product->unit_size;
-if ($category == "Flower" ){
-    
-}
+        /*        echo
+                dd($category);*/
         $uom = MetrcCategoryToUom::where('category', $category)->first();
         $unit_of_measure = $uom->uom;
 
-        echo "Product: " . $product->name . '<br>';
-        echo "Category: " . $product->category . '<br>';
-        echo "Short Uom: " . $short_uom . '<br>';
-        echo "Uom : " . $unit_of_measure . '<br>';
-        echo "Size: " . $unit_size . '<br>';
+        $category_name = "";
+        $short_uom = $product->uom;
+        $unit_size = $product->unit_size;
+        $quantity_type = "WeightBased";
+        $type = "Buds";
+        if ($category == "Flower") {
+            $uom_long = "Grams";
+            $type = "Buds";
+            $quantity_type = "CountBased";
+            $case_qty = $product->case_qty;
+            //      dd(round($unit_size,2) == 3.50);
+            if (round($unit_size, 2) == 3.50) {
+                $category_name = "Flower (packaged eighth - each)";
+            } elseif (round($unit_size) == 7.00) {
+                $category_name = $category . " (packaged quarter - each)";
+            }
+            $item_create = ["ItemCategory" => $category_name,
+                "Name" => $item,
+                "Type" => $type,
+                "QuantityType" => $quantity_type,
+                "UnitOfMeasure" => $unit_of_measure,
+                "UnitWeightUnitOfMeasure" => $uom_long,
+                "UnitWeight" => $unit_size,
+                "Strain" => $request->get('id'),
+            ];
 
-    //    dd($request);
-        /*        if ($category == "Tincture") {
-                    $UnitOfMeasure =
-                }*/
+        } elseif ($category == "Concentrate") {
+            $uom_long = "Grams";
+            $type = "Buds";
+            $quantity_type = "WeightBased";
+            $case_qty = $product->case_qty;
+            $category_name = "Flower (packaged eighth - each)";
 
-        $item_create = [
-            "ItemCategory" => $product->category,
-            "Name" => $item,
-            "UnitOfMeasure" => $unit_of_measure,
-            "UnitWeightUnitOfMeasure" => $uom_long,
-            "UnitWeight" => $unit_size,
-        ];
-        //  dd($packages_create);
+            $item_create = ["ItemCategory" => $category_name,
+                "Name" => $item,
+                "Type" => $type,
+                "QuantityType" => $quantity_type,
+                "UnitOfMeasure" => $unit_of_measure,
+                "UnitWeightUnitOfMeasure" => $uom_long,
+                "UnitWeight" => $unit_size,
+            ];
+
+            //   dd("edible");
+
+
+        } elseif ($category == "Edible") {
+            $uom_long = "Grams";
+            $type = "InfusedEdible";
+            $quantity_type = "CountBased";
+            $case_qty = $product->case_qty;
+            $category_name = "Edible (weight - each)";
+
+            $item_create = ["ItemCategory" => $category_name,
+                "Name" => $item,
+                "Type" => $type,
+                "QuantityType" => $quantity_type,
+                "UnitOfMeasure" => $unit_of_measure,
+                "UnitWeightUnitOfMeasure" => $uom_long,
+                "UnitWeight" => $unit_size,
+            ];
+
+        } elseif ($category == "Tincture") {
+            $uom_long = "Milliliters";
+            $type = "Concentrate";
+            $quantity_type = "CountBased";
+            $category_name = "Tincture (volume - each)";
+
+            $item_create = ["ItemCategory" => $category_name,
+                "Name" => $item,
+                "Type" => $type,
+                "QuantityType" => $quantity_type,
+                "UnitOfMeasure" => $unit_of_measure,
+                "UnitWeightUnitOfMeasure" => $uom_long,
+                "UnitVolume" => $unit_size,
+            ];
+
+
+        } elseif ($category == "Vape") {
+            $item_create = [];
+            $uom_long = "Milliliters";
+            $type = "Concentrate";
+            $quantity_type = "CountBased";
+            $category_name = "Vape Cartridge (volume - each)";
+
+            $item_create = ["ItemCategory" => $category_name,
+                "Name" => $item,
+                "Type" => $type,
+                "QuantityType" => $quantity_type,
+                "UnitOfMeasure" => $unit_of_measure,
+                "UnitWeightUnitOfMeasure" => $uom_long,
+                "UnitVolume" => $unit_size,
+            ];
+
+        } elseif ($category == "Topical") {
+            $item_create = [];
+            $uom_long = "Milliliters";
+            $type = "Concentrate";
+            $quantity_type = "InfusedNonEdible";
+            $category_name = "Topical (weight - each)";
+
+            $item_create = ["ItemCategory" => $category_name,
+                "Name" => $item,
+                "Type" => $type,
+                "QuantityType" => $quantity_type,
+                "UnitOfMeasure" => $unit_of_measure,
+                "UnitWeightUnitOfMeasure" => $uom_long,
+                "UnitVolume" => $unit_size,
+            ];
+
+        }
+
+        /*            echo "Product: " . $product->name . '<br>';
+                    echo "Category: " . $category_name . '<br>';
+                    echo "Quantity_type: " . $quantity_type . '<br>';
+                    echo "Short Uom: " . $short_uom . '<br>';
+                    echo "Uom : " . $unit_of_measure . '<br>';
+                    echo "Size: " . round($unit_size, 2) . '<br>';*/
+
+
         $data1 = json_encode($item_create, JSON_PRETTY_PRINT);
-        //    dd($data1);
         $data2 = "[" . $data1 . "]";
         $data = ['body' => $data2];
-     //      dd($data);
-        $client = new Client([
-            'timeout' => 60.0,
+//dd($data);
+        $client = new Client(['timeout' => 60.0,
             'headers' => ['content-type' => 'application/json', 'Accept' => 'application/json'],
             'auth' => ['6Qql8-KoIB7VuGFPDeUkZ2JnPLiAwzolmI4p-e2yM3w29mIz', 'myIsiMUHP3dD6qO0Yxpmfybn9E-YawVTZRoSGyelxk4M3EqM'], // oz
             'request.options' => ['exceptions' => true]]);
 
-        $headers = [
-            'headers' => ['content-type' => 'application/json', 'Accept' => 'application/json'],
-            'auth' => ['6Qql8-KoIB7VuGFPDeUkZ2JnPLiAwzolmI4p-e2yM3w29mIz', 'myIsiMUHP3dD6qO0Yxpmfybn9E-YawVTZRoSGyelxk4M3EqM'], // oz
+        $headers = ['headers' => ['content-type' => 'application/json', 'Accept' => 'application/json'],
+            'auth' => ['6Qql8-KoIB7VuGFPDeUkZ2JnPLiAwzolmI4p-e2yM3w29mIz', 'myIsiMUHP3dD6qO0Yxpmfybn9E-YawVTZRoSGyelxk4M3EqM'], // oz];
         ];
 
         $license = 'C11-0000224-LIC';   //oz
@@ -332,7 +455,8 @@ if ($category == "Flower" ){
                 $message = "Other error";
             }
 
-        } catch (GuzzleException $error) {
+        } catch
+        (GuzzleException $error) {
             $response = $error->getResponse();
             $response_info = json_decode($response->getBody()->getContents(), true);
             //    dd(is_array($response_info));
@@ -356,9 +480,10 @@ if ($category == "Flower" ){
             for ($i = 0; $i < count($error_message); $i++) {
                 $messages = $messages . $error_message[$i][0] . '|';
             }
-          //  dd($messages);
+            //                          dd($messages);
             return redirect()->to(route('make_package_return', [$id, $messages]) . "#error_message");
         }
+        //         dd("success");
     }
 
     public

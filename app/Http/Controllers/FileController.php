@@ -2,6 +2,7 @@
 
 namespace App\ Http\ Controllers;
 
+use App\ProductProduct;
 use Illuminate\Support\Facades\Artisan;
 use App\LicenseNumber;
 use App\MetrcPackage;
@@ -453,6 +454,9 @@ class FileController extends Controller
             } else {
                 $margin = 0;
             }
+            $product = ProductProduct::where('ext_id',$order_lines[$i]['product_id'][0])->first();
+            $unit_size = $product->unit_size;
+        //    dd($unit_size);
 //dd($order_lines[$i]['id']);
 
             //   dd(substr($order_lines[$i]['order_id'][1], 2))  ;
@@ -490,6 +494,7 @@ class FileController extends Controller
                     'qty_invoiced' => $order_lines[$i]['qty_invoiced'],
                     'qty_to_invoice' => $order_lines[$i]['qty_to_invoice'],
                     'qty_delivered' => $order_lines[$i]['qty_delivered'],
+                    'unit_size' => $unit_size,
                 ]);
 
         }

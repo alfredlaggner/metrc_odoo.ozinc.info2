@@ -19,6 +19,7 @@
             'metrc_package_created',
             'metrc_quantity',
             'metrc_uom',
+            'unit_size',
             'driver_log_id',
             'order_id',
             'ext_id_shipping',
