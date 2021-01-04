@@ -10,7 +10,6 @@ use App\MetrcTag;
 use App\MetrcUom;
 use App\MetrcStrain;
 use App\MetrcOrderline;
-use App\Package;
 use App\Product;
 use App\ProductProduct;
 use Carbon\Carbon;
@@ -19,7 +18,7 @@ use Illuminate\Http\Request;
 use App\MetrcPackage;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
-use Artisan;
+
 /*use GuzzleHttp\Psr7\Request;*/
 
 use GuzzleHttp\Exception\RequestException;
@@ -179,6 +178,8 @@ class MetrcPackageController extends Controller
         //    dd($source_uom);
         $tag = $sp->tag;
         $unit_size = 0;
+        /*        echo $tag .'<br>';
+                echo $source_uom;*/
         if ($source_uom == "Grams") {
             $orderline = MetrcOrderline::where('id', $line_id)->first();
             $unit_size = $orderline->unit_size;
@@ -186,7 +187,13 @@ class MetrcPackageController extends Controller
                 $source_quantity = $unit_size * $quantity;
             }
         }
+        echo ($source_package['source_package']) . '<br>';
+        echo $quantity . '<br>';
+        echo $source_quantity;
+/*        $this->update_source_package($source_package['source_package'],$source_quantity, $quantity);
+dd( 'check' . $source_package['source_package']);*/
 
+        //     echo $unit_size;
         $packages_create = [
             'Tag' => $new_package['new_package'],
             "Quantity" => $quantity,
@@ -205,9 +212,12 @@ class MetrcPackageController extends Controller
                     "Quantity" => $source_quantity,
                     "UnitOfMeasure" => $source_uom
                 ]]];
+        //  dd($packages_create);
         $data1 = json_encode($packages_create, JSON_PRETTY_PRINT);
+        //    dd($data1);
         $data2 = "[" . $data1 . "]";
         $data = ['body' => $data2];
+        //   dd($data);
         $client = new Client([
             'timeout' => 60.0,
             'headers' => ['content-type' => 'application/json', 'Accept' => 'application/json'],
@@ -229,9 +239,9 @@ class MetrcPackageController extends Controller
             if ($rsp_body == '') {
                 $message = 'Package created';
 
-                MetrcTag::where('tag', '=', $new_package['new_package'])->update(['is_used' => 1, 'used_at' => Carbon::now()]);
+                //     dd($new_package . '/' . $saleorder_number . '/'. $line_number);
 
-                $this->update_source_package($source_package['source_package'],$source_quantity);
+                MetrcTag::where('tag', '=', $new_package['new_package'])->update(['is_used' => 1, 'used_at' => Carbon::now()]);
 
                 return redirect()->to(route('make_package_return', [$id, $message]) . "#error_message");
             } else {
@@ -241,7 +251,7 @@ class MetrcPackageController extends Controller
         } catch (GuzzleException $error) {
             $response = $error->getResponse();
             $response_info = json_decode($response->getBody()->getContents(), true);
-   //             dd($response_info);
+            //    dd(is_array($response_info));
             $message = $response_info;
             //    dd($message);
             if (is_array($response_info)) {
@@ -267,46 +277,20 @@ class MetrcPackageController extends Controller
                         echo $messages . "<br>";
                     //    dd("xxx");
                         dd($messages);*/
-
-          /* Package:: updateOrCreate(
-                               ['label' => $source_package['source_package']],
-                               [
-                                   'quantity' => $packages->Quantity,
-                                   'date' => $packages->PackagedDate,
-                               ]);
-               */
             return redirect()->to(route('make_package_return', [$id, $messages]) . "#error_message");
 
         }
-
-        return 0;
+        $this->update_source_package($source_package['source_package'],$source_quantity);
     }
 
-    public function update_source_package($label)
+    public function update_source_package($source_package,$source_quantity, $quantity)
     {
-
-        $client = new Client([
-            'base_uri' => "https://api-ca.metrc.com",
-            'timeout' => 10.0,
-        ]);
-        $headers = [
-            'headers' => ['content-type' => 'application/json', 'Accept' => 'application/json'],
-            'auth' => ['4w9TaWS-WuFYilK5r91lmKC2LwuGHr0q0nkvYM3axVo1z1Fo', 'IgLHZR3M-5DjNPsXinfVZJ7PWQfm31CxGD8aFC8dZMbzJP5i'],
-        ];
-
-        $license = 'C11-0000224-LIC';
-        $response = $client->request('GET', '/packages/v1/' . $label . '?licenseNumber=' . $license , $headers);
-        $packages = json_decode($response->getBody()->getContents());
-        Package:: updateOrCreate(
-            ['ext_id' => $packages->Id],
-            [
-                'quantity' => $packages->Quantity,
-                'date' => $packages->PackagedDate,
-            ]);
-        return 0;
+        $sp = MetrcPackage::where('tag', $source_package)->update(['quantity' => $quantity - $source_quantity]);
     }
+
     public function create_new_item($request)
     {
+//dd($request);
 
         $item = $request->get('item');
         $id = $request->get('id');
