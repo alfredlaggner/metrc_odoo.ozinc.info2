@@ -14,6 +14,7 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         'App\Console\Commands\getSalesOrders',
+        'App\Console\Commands\metrc_update_package',
     ];
 
     /**

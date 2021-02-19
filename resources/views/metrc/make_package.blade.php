@@ -56,14 +56,23 @@
                                     @endphp
                                     @if ($sp->tag == $tag)
                                         <option selected
-                                                value={{$sp->tag}}>{{$item . " x- " . "Date: " . $sp->date . " - " .  "Quantity: " .  $sp->quantity . " "  . $sp->uom .  " - " . $sp->tag . " - " .  $sp->source_tag  }} </option>
+                                                value={{$sp->tag}}>{{$item  . " - Date: " . $sp->date . " - " .  "Quantity: " .  $sp->quantity . " "  . $sp->uom .  " - " . $sp->tag . " - " .  $sp->source_tag  }} </option>
                                     @else
                                         <option
-                                            value={{$sp->tag}}>{{$item . " x- " . "Date: " . $sp->date . " - " .  "Quantity: " .  $sp->quantity . " "  . $sp->uom . " - " . $sp->tag  . " - " .  $sp->source_tag }} </option>
+                                            value={{$sp->tag}}>{{$item  . " - Date: " . $sp->date . " - " .  "Quantity: " .  $sp->quantity . " "  . $sp->uom . " - " . $sp->tag  . " - " .  $sp->source_tag }} </option>
                                     @endif
                                 @endforeach
                             </select>
                         </div>
+{{--
+
+                        <div class="form-group text-left">
+                            <label for="tag">Original source package</label>
+                            <input class="form-control form-control-lg" name="item" type="text"
+                                   value="{{$tag}}" data-toggle="popover" data-trigger="hover" title="Help"
+                                   data-content="This is for testing only ...">
+                        </div>
+--}}
 
                         <div class="form-group text-left">
                             <label for="tag">Select a new tag</label>
