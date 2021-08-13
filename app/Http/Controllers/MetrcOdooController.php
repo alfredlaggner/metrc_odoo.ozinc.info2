@@ -27,6 +27,7 @@ class MetrcOdooController extends Controller
     public function related_product($metrc_id, $metrc_product_name)
     {
         $products = Product::search($metrc_product_name)->get();
+     //   dd($products);
         $products_count = count($products);
         return view('metrc.odoo_products', compact('products', 'products_count', 'metrc_product_name', 'metrc_id'));
     }
@@ -48,7 +49,7 @@ class MetrcOdooController extends Controller
             $package->save();
             echo "Item " . $item->name . " updated with " . $item->product_id . "<br>";
         } else {
-            echo "Item " . $item->name . " not fount. " . "<br>";
+            echo "Item " . $item->name . " not found. " . "<br>";
         }
         echo "product ext_id= " . $ext_id . "<br>";
         echo "product metrc_id= " . $metrc_id . "<br>";

@@ -2,6 +2,7 @@
 
 namespace App\ Http\ Controllers;
 
+use App\Orderline;
 use App\ProductProduct;
 use Illuminate\Support\Facades\Artisan;
 use App\LicenseNumber;
@@ -70,18 +71,18 @@ class FileController extends Controller
         //  dd("xxx");
         if ($id) {
             $metrc_order_line = MetrcOrderline::first();
-    //        dd($metrc_order_line);
+            //        dd($metrc_order_line);
             $sale_order_full = $metrc_order_line->invoice_number;
             $order_id = $metrc_order_line->order_id;
             $saleorder_number = $metrc_order_line->order_id;
-         //   dd($sale_order_full);
+            //   dd($sale_order_full);
 
             $so = SalesOrder::where('sales_order', $sale_order_full)->first();
             //    $this->updateOrderLines($return_tag, $return_line_number);
         } else {
             $saleorder_number = $request->get('saleorder_number');
 
-       //     abort_if(!$saleorder_number, 403, 'You must enter a sales order number');
+            //     abort_if(!$saleorder_number, 403, 'You must enter a sales order number');
             if (!$saleorder_number) return redirect(route('start'))->with('status', 'You must enter a sales order number');
 
             $so = MetrcSalesOrder::firstOrCreate(['saved_sales_order' => $saleorder_number]);
@@ -90,7 +91,7 @@ class FileController extends Controller
             $sale_order_full = "SO" . $sale_order[0];
             $order_id = intval($saleorder_number);
             $so = $this->import_salesorder("SO" . $order_id);
-         //   abort_if(!$so, 403, 'Order not found. Try a different order number');
+            //   abort_if(!$so, 403, 'Order not found. Try a different order number');
             if (!$so) return redirect(route('start'))->with('status', 'Order not found');
 
             $this->importOrderLines($so->ext_id);
@@ -108,7 +109,7 @@ class FileController extends Controller
                 $driver_id = $plr->driver_id;
                 $vehicle_id = $plr->vehicle_id;
             } else {
-                $planned_route =  $sale_order_full . ' ' . $so->customer->name . "\r\n\r\n" . 'Fastest route according to legal requirements.';
+                $planned_route = $sale_order_full . ' ' . $so->customer->name . "\r\n\r\n" . 'Fastest route according to legal requirements.';
                 $driver_id = 0;
                 $vehicle_id = 0;
             }
@@ -227,20 +228,58 @@ class FileController extends Controller
         return view('metrc.manifest', compact('to_view', 'view_saleslines', 'error_message'));
     }
 
+/*
+    public function getFromOdoo($id = '')
+    {
+        $odoo = new \Edujugon\Laradoo\Odoo();
+        $odoo = $odoo->connect();
+        $id = (int)$id;
+
+        $picking = $odoo->where('sale_id', '=', $id)
+            ->limit(1)
+            ->fields(
+                'scheduled_date'
+            )
+            ->get('stock.picking');
+        return substr($picking[0]['scheduled_date'], 0, 10);
+
+    }*/
+
     private function import_salesorder($sales_order)
     {
         MetrcTmpSalesOrder::truncate();
-      //  dd($sales_order);
+        //  dd($sales_order);
         Artisan::call('odoo:salesorders', ['sales_order' => $sales_order]);
         $so = MetrcTmpSalesOrder::first();
         return ($so);
+    }
+    public function driver_log($driver, $vehicle, $order_id, $delivery_date, $sales_lines, $sales_orders)
+    {
+        $sale_invoice = $sales_lines->first();
+     //   dd($sale_invoice);
+        $so = $sales_orders->first();
+        $sales_person_id = $sale_invoice->sales_person_id;
+        $customer_id = $sale_invoice->ext_id_shipping;
+
+        $driver_log = new DriverLog;
+        $driver_log->vehicle_id = $vehicle->id;
+        $driver_log->driver_id = $driver->id;
+        $driver_log->saleinvoice_id = $order_id;
+        $driver_log->salesperson_id = $sales_person_id;
+        $driver_log->customer_id = $customer_id;
+        $driver_log->delivery_date = $delivery_date;
+        $driver_log->total = $so->amount_total;
+        $driver_log->collected = $so->amount_total;
+        $driver_log->order_date = $so->order_date;
+        $driver_log->save();
+
     }
 
     public function make_manifests(Request $request)
     {
         //      return redirect('do_test');
 
-       //    dd($request);
+        //    dd($request);
 
 
         $driver = User::find($request->get('driver'));
@@ -255,6 +294,7 @@ class FileController extends Controller
         $return_value = $request->get('return_value');
         $tags = $request->get('tag');
         $ids = $request->get('id');
+//dd($sale_orders);
 
         for ($i = 0; $i < count($ids); $i++) {
             if ($tags[$i]) {
@@ -283,12 +323,17 @@ class FileController extends Controller
         session(['vehicle' => $request->get('vehicle')]);
 
         $sales_lines = MetrcOrderline::get();
-
-
+//dd("SO".$sale_orders);
+        $sales_orders = SalesOrder::where('sales_order',"SO".$sale_orders)->first();
+  //      dd($sales_orders);
+        $this->importDriverLogOrderLines($sales_orders->ext_id);
+        $sales_lines = Orderline::get();
+//dd($sales_lines->toArray());
+             $this->driver_log($driver, $vehicle, $sale_orders, today(), $sales_lines, $sales_orders);
+//dd("after driverlog");
         $business = Business::first();
 // check for valid license number
         $metrc_sales_lines = $this->make_metrc_sales_lines($sales_lines);
-//dd($metrc_sales_lines);
         $licenses = LicenseNumber::where('bcc_license', $license_number)->get();
         /** @var TYPE_NAME $bcc_license */
         $bcc_license = '';
@@ -380,6 +425,106 @@ class FileController extends Controller
             ]
         );
     }
+    public function importDriverlogOrderLines($order_id)
+    {
+        //    dd($order_id);
+        $odoo = new \Edujugon\Laradoo\Odoo();
+        $odoo = $odoo->connect();
+        $order_lines = $odoo
+            ->where('order_id','=', $order_id)
+            ->fields(
+                'id',
+                'write_date',
+                'name',
+                'name_short',
+                'price_subtotal',
+                'move_ids',
+                'invoice_lines',
+                'untaxed_amount_to_invoice',
+                'untaxed_amount_invoiced',
+                'invoice_status',
+                'margin',
+                'qty_invoiced',
+                'qty_to_invoice',
+                'qty_delivered',
+                'product_uom_qty',
+                'price_unit',
+                'product_uom',
+                'create_date',
+                'order_partner_id',
+                'product_id',
+                'order_partner_id',
+                'list_price',
+                'order_id',
+                'purchase_price',
+                'salesman_id'
+            )
+            ->get('sale.order.line');
+//dd($order_lines);
+        \DB::table('manifest_orderlines')->delete();
+
+        for ($i = 0; $i < count($order_lines); $i++) {
+            $name_org = $order_lines[$i]['name'];
+            $pos = strpos($name_org, ']');
+            $code = '';
+            if ($pos) {
+                $name = substr($name_org, $pos + 2);
+                $code = substr($name_org, 0, $pos + 2);
+            } else {
+                $name = $name_org;
+            }
+
+            $revenue = $order_lines[$i]['price_unit'];
+            if ($revenue > 0.01) {
+                $cost = $order_lines[$i]['purchase_price'];
+
+                $gross_profit = bcsub($revenue, $cost, 3);
+
+                if ($gross_profit != 0 and $revenue != 0 and $cost != 0) {
+                    $margin = bcmul('100', bcdiv($gross_profit, $revenue, 3), 3);
+                    // dd($margin);
+                } else {
+                    $margin = 0;
+                };
+            } else {
+                $margin = 0;
+            }
+            //   dd(substr($order_lines[$i]['order_id'][1], 2))  ;
+            Orderline::updateOrCreate(
+                [
+                    'ext_id' => $order_lines[$i]['id']
+                ],
+                [
+                    'ext_id_shipping' => $order_lines[$i]['order_partner_id'][0],
+                    'order_date' => $order_lines[$i]['create_date'],
+                    'created_at' => $order_lines[$i]['create_date'],
+                    'sales_person_id' => $order_lines[$i]['salesman_id'][0],
+                    'product_id' => $order_lines[$i]['product_id'][0],
+                    'order_id' => substr($order_lines[$i]['order_id'][1], 2),
+                    //   'order_id' => $order_lines[$i]['order_id'][0],
+                    'invoice_number' => $order_lines[$i]['order_id'][1],
+                    //   'invoice_number' => "SO" . $order_lines[$i]['order_id'][0],
+                    'customer_id' => $order_lines[$i]['order_partner_id'][0],
+                    'name' => $name,
+                    'code' => $code,
+                    'quantity' => $order_lines[$i]['product_uom_qty'],
+                    'cost' => $order_lines[$i]['purchase_price'],
+                    'ext_id_unit' => $order_lines[$i]['product_uom'][1],
+                    'unit_price' => $order_lines[$i]['price_unit'],
+                    'margin' => $margin,
+                    'amt_to_invoice' => $order_lines[$i]['untaxed_amount_to_invoice'] / 1.24,
+                    'amt_invoiced' => $order_lines[$i]['untaxed_amount_invoiced'] / 1.24,
+                    'price_subtotal' => $order_lines[$i]['price_subtotal'],
+                    'invoice_status' => $order_lines[$i]['invoice_status'],
+                    'odoo_margin' => $order_lines[$i]['margin'],
+                    'qty_invoiced' => $order_lines[$i]['qty_invoiced'],
+                    'qty_to_invoice' => $order_lines[$i]['qty_to_invoice'],
+                    'qty_delivered' => $order_lines[$i]['qty_delivered'],
+                ]);
+
+        }
+        return;
+    }
 
     public
     function importOrderLines($order_id)
@@ -418,8 +563,8 @@ class FileController extends Controller
             ->get('sale.order.line');
 //dd($order_lines);
 
-       // \DB::table('metrc_orderlines')->delete();
-           MetrcOrderline::truncate();
+        // \DB::table('metrc_orderlines')->delete();
+        MetrcOrderline::truncate();
 //dd("xxx");
 
         for ($i = 0; $i < count($order_lines); $i++) {
@@ -454,9 +599,9 @@ class FileController extends Controller
             } else {
                 $margin = 0;
             }
-            $product = ProductProduct::where('ext_id',$order_lines[$i]['product_id'][0])->first();
+            $product = ProductProduct::where('ext_id', $order_lines[$i]['product_id'][0])->first();
             $unit_size = $product->unit_size;
-        //    dd($unit_size);
+            //    dd($unit_size);
 //dd($order_lines[$i]['id']);
 
             //   dd(substr($order_lines[$i]['order_id'][1], 2))  ;
@@ -571,28 +716,28 @@ class FileController extends Controller
         }
     }
 
-    public
-    function driver_log($driver, $vehicle, $order_id, $delivery_date, $sales_lines, $sales_orders)
-    {
-        $sale_invoice = $sales_lines->first();
-        $so = $sales_orders->first();
-        $sales_person_id = $sale_invoice->sales_person_id;
-        $customer_id = $sale_invoice->ext_id_shipping;
+    /*    public
+        function driver_log($driver, $vehicle, $order_id, $delivery_date, $sales_lines, $sales_orders)
+        {
+            $sale_invoice = $sales_lines->first();
+            $so = $sales_orders->first();
+            $sales_person_id = $sale_invoice->sales_person_id;
+            $customer_id = $sale_invoice->ext_id_shipping;
 
-        $driver_log = new DriverLog;
-        $driver_log->vehicle_id = $vehicle->id;
-        $driver_log->driver_id = $driver->id;
-        $driver_log->saleinvoice_id = $order_id;
-        $driver_log->salesperson_id = $sales_person_id;
-        $driver_log->customer_id = $customer_id;
-        $driver_log->delivery_date = $delivery_date;
-        $driver_log->total = $so->amount_total;
-        $driver_log->collected = $so->amount_total;
-        $driver_log->order_date = $so->order_date;
-        $driver_log->save();
+            $driver_log = new DriverLog;
+            $driver_log->vehicle_id = $vehicle->id;
+            $driver_log->driver_id = $driver->id;
+            $driver_log->saleinvoice_id = $order_id;
+            $driver_log->salesperson_id = $sales_person_id;
+            $driver_log->customer_id = $customer_id;
+            $driver_log->delivery_date = $delivery_date;
+            $driver_log->total = $so->amount_total;
+            $driver_log->collected = $so->amount_total;
+            $driver_log->order_date = $so->order_date;
+            $driver_log->save();
 
 
-    }
+        }*/
 
 
     public

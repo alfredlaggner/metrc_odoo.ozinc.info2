@@ -22,6 +22,8 @@ class ImportTagsController extends Controller
     public function import_tags(Request $request)
     {
         $request->validate(['import_file' => 'required']);
+    //   dd($request);
+   //     dd($request->file('import_file'));
 
         $path1 = $request->file('import_file')->store('temp');
         $path = storage_path('app') . '/' . $path1;

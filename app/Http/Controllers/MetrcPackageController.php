@@ -86,6 +86,7 @@ class MetrcPackageController extends Controller
         $line_number = $request->get("line_number");
         $sale_order_full = $request->get("sale_order_full");
         $source_packages = MetrcPackage::search($name)->get();
+    //    dd($source_packages);
         $tags = MetrcTag::orderby('tag')->get();
         $uoms = MetrcUom::all();
 

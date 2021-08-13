@@ -58,4 +58,24 @@ Route::group([], function () { // This will use the default web middleware
 
     Route::any('update_tag', 'MetrcPackageController@update_tag')->name('update_tag');
 
+
+    //driverlog
+    Route::get('go-home', array('as' => 'go-home', 'uses' => 'DriverLogController@index'));
+    Route::get('go-viewer', array('as' => 'go-viewer', 'uses' => 'DriverLogController@viewer'));
+    Route::get('delivery_done/{log_id}', array('as' => 'delivery_done', 'uses' => 'DriverLogController@delivery_done'));
+
+
+  //  Route::get('/', array('as' => 'log', 'uses' => 'DriverLogController@index'));
+    Route::get('viewer', array('as' => 'viewer', 'uses' => 'DriverLogController@viewer'));
+    Route::resource('driverlogs', 'DriverLogController');
+    Route::resource('notes', 'NotesController');
+    Route::resource('line_notes', 'LineNoteController');
+    Route::get('edit_action/{sale_order_id}', 'DriverLogController@edit_action')->name('edit_action');
+    Route::get('create_notes/{log_id}/{sale_order_id}/{total}', 'DriverLogController@create_notes')->name('create_notes');
+    Route::get('display_notes/{log_id}/{sale_order_id}', 'DriverLogController@display_notes')->name('display_notes');
+    Route::get('print_so_report/{log_id}/{sale_order_id}/{total}', 'DriverLogController@print_so_report')->name('print_so_report');
+    Route::get('detail-edit/{saleinvoice}/{total}/{log_id}', array('as' => 'detail-edit','uses' => 'SaleInvoiceController@edit'));
+    Route::get('detail-edit/{saleinvoice}/{total}/{log_id}', array('as' => 'detail-edit','uses' => 'SaleInvoiceController@edit'));
+    Route::resource('saleinvoices', 'SaleInvoiceController');
+
 });
